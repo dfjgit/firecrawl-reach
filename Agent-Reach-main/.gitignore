@@ -1,0 +1,28 @@
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+.env
+.agent-reach/
+*.log
+
+# Claude Code personal permission settings — local only, never commit
+.claude/settings.local.json
+uv.lock
+
+# stealth sidecar build artifacts & local MITM CA (never commit private keys)
+sidecar/bin/
+sidecar/ca/
+
+# Collected fingerprint profiles are machine-specific (GPU / screen / timezone)
+# — keep local, collect per machine with detect/collect_profile.py
+detect/collected/
+
+# mediacrawler subtree: local venv, login-state browser profiles, crawl output
+mediacrawler/.venv/
+mediacrawler/browser_data/
+mediacrawler/data/
+.venv/

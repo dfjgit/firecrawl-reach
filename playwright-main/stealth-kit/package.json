@@ -1,0 +1,19 @@
+{
+  "name": "stealth-kit",
+  "version": "0.1.0",
+  "private": true,
+  "description": "User-land stealth wrapper around Playwright public APIs. Never patches Playwright itself.",
+  "main": "dist/src/index.js",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "self-check": "npm run build && node dist/detect/self-check.js"
+  },
+  "dependencies": {
+    "playwright-core": "^1.62.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.8.0"
+  }
+}

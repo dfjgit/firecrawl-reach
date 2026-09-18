@@ -1,0 +1,43 @@
+# ── Python ──────────────────────────────────────────────
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.egg-info/
+**/.pytest_cache/
+**/.ruff_cache/
+**/dist/
+**/build/
+**/.venv/
+
+# ── Agent-Reach 本地运行数据（机器/实例专属）────────────
+**/.agent-reach/
+*.log
+**/acquisition/data/
+**/mediacrawler/data/
+**/mediacrawler/browser_data/
+**/browser_data/
+config/config.yaml
+
+# ── 反检测 sidecar：二进制 + 本地 MITM CA 私钥，绝不提交 ──
+**/sidecar/bin/
+**/sidecar/ca/
+
+# ── 逐机不同的指纹档案（用 detect/collect_profile.py 各自采集）──
+**/detect/collected/
+
+# ── 本地工具链（Go，约 232MB / 13278 文件）──────────────
+**/.tools/
+
+# ── mediacrawler 子树（移植自 MediaCrawler）────────────────
+# 适用 NON-COMMERCIAL LEARNING LICENSE：仅限学习研究、禁止商用/公开分发。
+# 故不纳入公开版本控制；本地文件保留，功能不受影响。
+# 若仓库转为私有且仅自用，可删掉本节重新纳入。
+**/mediacrawler/
+
+# ── WorkBuddy 工作区数据（含项目笔记，不公开）──────────
+.workbuddy/
+
+# ── OS ──────────────────────────────────────────────────
+Thumbs.db
+desktop.ini
+.DS_Store

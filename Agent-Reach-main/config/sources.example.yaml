@@ -1,0 +1,50 @@
+# 采集源注册表示例。复制到 ~/.agent-reach/acquisition/sources.yaml 后按需修改。
+# 字段说明见 docs/acquisition-module-design.md §3。
+
+- id: kr36-rss
+  name: 36氪
+  lane: news
+  kind: rss                        # 有 RSS 永远首选（L0 结构化）
+  url: https://36kr.com/feed
+  interval: 15m
+
+- id: cailianshe-telegraph
+  name: 财联社电报
+  lane: news
+  kind: stealth                    # JS 壳页面，必须渲染（L1/L2）
+  url: https://www.cls.cn/telegraph
+  interval: 5m
+  max_items: 30
+  extra_args:
+    item_pattern: '^\d{2}:\d{2}'   # L1：按电报时间戳行首切分；不配则 L2 整页快照
+
+# ── 通道二（登录态）示例 ──
+
+- id: x-timeline-trump
+  name: Trump on X                 # author 从这里恢复
+  lane: auth
+  kind: twitter-cli                # 需先 agent-reach configure twitter-cookies
+  command: ["user-posts", "@realDonaldTrump", "-n", "20"]
+  interval: 30m
+  enabled: false                   # 配好凭据后改为 true
+
+- id: weibo-creator-example
+  name: 某财经博主
+  lane: auth
+  kind: mediacrawler               # 需先 agent-reach crawl wb --lt qrcode 扫码一次
+  platform: wb
+  crawler_type: creator
+  creator_id: "1234567890"
+  interval: 1h
+  enabled: false                   # 登录并填好 creator_id 后改为 true
+
+# 整站爬取（firecrawl 自托管栈；先 agent-reach configure firecrawl-enabled true）
+# - id: firecrawl-docs
+#   name: 示例文档站
+#   lane: news
+#   kind: firecrawl_crawl
+#   url: https://docs.example.com
+#   interval: 6h
+#   max_items: 50
+#   extra_args:
+#     crawl_limit: 200   # 每次整站爬取的页面上限

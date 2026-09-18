@@ -1,0 +1,98 @@
+# Firecrawl 自托管栈（精简版）：预构建镜像 + 免认证 + Postgres 队列后端。
+# 上游完整版见 firecrawl-main/docker-compose.yaml；本文件差异：
+#   - image 替代 build（免本地构建）
+#   - 去掉 FoundationDB 实验服务（NUQ 默认走 nuq-postgres）
+#   - USE_DB_AUTHENTICATION=false（自托管免 API key）
+name: firecrawl
+
+x-common-env: &common-env
+  REDIS_URL: redis://redis:6379
+  REDIS_RATE_LIMIT_URL: redis://redis:6379
+  PLAYWRIGHT_MICROSERVICE_URL: http://playwright-service:3000/scrape
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: postgres
+  POSTGRES_DB: postgres
+  POSTGRES_HOST: nuq-postgres
+  POSTGRES_PORT: 5432
+  USE_DB_AUTHENTICATION: "false"
+  NUM_WORKERS_PER_QUEUE: ${NUM_WORKERS_PER_QUEUE:-8}
+  # 可选：搜索功能（agent-reach search）需要自建 SearXNG 后填这两项
+  SEARXNG_ENDPOINT: ${SEARXNG_ENDPOINT:-}
+  SEARXNG_ENGINES: ${SEARXNG_ENGINES:-}
+
+services:
+  playwright-service:
+    image: ghcr.io/firecrawl/playwright-service:latest
+    environment:
+      PORT: 3000
+      MAX_CONCURRENT_PAGES: ${CRAWL_CONCURRENT_REQUESTS:-10}
+      BLOCK_MEDIA: "true"
+    networks:
+      - backend
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cpus: 2.0
+    mem_limit: 4G
+
+  api:
+    image: ghcr.io/firecrawl/firecrawl:latest
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+    environment:
+      <<: *common-env
+      HOST: "0.0.0.0"
+      PORT: 3002
+      NUQ_RABBITMQ_URL: amqp://rabbitmq:5672
+      ENV: local
+    depends_on:
+      redis:
+        condition: service_started
+      playwright-service:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+      nuq-postgres:
+        condition: service_started
+    ports:
+      # 免认证栈只绑定 localhost，避免内网其他机器直接调用
+      - "127.0.0.1:${PORT:-3002}:3002"
+    command: node dist/src/harness.js --start-docker
+    networks:
+      - backend
+    cpus: 4.0
+    mem_limit: 8G
+
+  redis:
+    image: redis:alpine
+    command: redis-server --bind 0.0.0.0
+    networks:
+      - backend
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    command: rabbitmq-server
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      - backend
+
+  nuq-postgres:
+    image: ghcr.io/firecrawl/nuq-postgres:latest
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    networks:
+      - backend
+
+networks:
+  backend:
+    driver: bridge
