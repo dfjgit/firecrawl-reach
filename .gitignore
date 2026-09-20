@@ -18,6 +18,11 @@
 **/browser_data/
 config/config.yaml
 
+# ── 临时备份 / 编辑器残留（保留在磁盘供回滚，但不入库）────
+*.bak*
+**/*.orig
+**/*.rej
+
 # ── 反检测 sidecar：二进制 + 本地 MITM CA 私钥，绝不提交 ──
 **/sidecar/bin/
 **/sidecar/ca/
