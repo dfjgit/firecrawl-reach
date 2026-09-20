@@ -8,6 +8,13 @@
 import os
 from pathlib import Path
 
+# 兜底：若本包被单独 import（未先经过 agent_reach），同样默认指向本仓库的 .agent-reach，
+# 避免回落到共享的用户级目录（与 pw 版隔离）。setdefault 不覆盖显式值。
+os.environ.setdefault(
+    "AGENT_REACH_HOME",
+    str(Path(__file__).resolve().parents[2] / ".agent-reach"),
+)
+
 
 def acquisition_dir() -> Path:
     """采集模块的私有数据目录（懒计算，便于测试隔离 HOME）。
