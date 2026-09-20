@@ -3,6 +3,12 @@
 #   - image 替代 build（免本地构建）
 #   - 去掉 FoundationDB 实验服务（NUQ 默认走 nuq-postgres）
 #   - USE_DB_AUTHENTICATION=false（自托管免 API key）
+#
+# 2026-09-20 摘入上游 docker-compose.yaml 的 3 项运维改进：
+#   1) nuq-postgres 加 pg_isready 健康检查；api 的 depends_on 由 service_started
+#      改为 service_healthy —— 此前 Postgres 尚未就绪 API 就会启动，偶发启动失败。
+#   2) 所有服务加 json-file 日志轮转（此前无上限，docker 日志会无限膨胀）。
+#   3) 暴露 HARNESS_STARTUP_TIMEOUT_MS / MAX_CONCURRENT_JOBS / BROWSER_POOL_SIZE。
 name: firecrawl
 
 x-common-env: &common-env
@@ -20,6 +26,14 @@ x-common-env: &common-env
   SEARXNG_ENDPOINT: ${SEARXNG_ENDPOINT:-}
   SEARXNG_ENGINES: ${SEARXNG_ENGINES:-}
 
+# 日志轮转：单容器最多保留 3 个 10MB 的压缩日志文件，超出自动轮转
+x-common-logging: &common-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+    compress: "true"
+
 services:
   playwright-service:
     image: ghcr.io/firecrawl/playwright-service:latest
@@ -35,6 +49,7 @@ services:
       - ALL
     cpus: 2.0
     mem_limit: 4G
+    logging: *common-logging
 
   api:
     image: ghcr.io/firecrawl/firecrawl:latest
@@ -48,6 +63,11 @@ services:
       PORT: 3002
       NUQ_RABBITMQ_URL: amqp://rabbitmq:5672
       ENV: local
+      # 冷启动时等待依赖就绪的上限（默认 60s；机器慢可调大）
+      HARNESS_STARTUP_TIMEOUT_MS: ${HARNESS_STARTUP_TIMEOUT_MS:-60000}
+      # 并发上限，按机器规格调整
+      MAX_CONCURRENT_JOBS: ${MAX_CONCURRENT_JOBS:-5}
+      BROWSER_POOL_SIZE: ${BROWSER_POOL_SIZE:-5}
     depends_on:
       redis:
         condition: service_started
@@ -55,8 +75,9 @@ services:
         condition: service_started
       rabbitmq:
         condition: service_healthy
+      # 等 Postgres 真正接受连接后再启动 API，避免队列后端连不上导致启动失败
       nuq-postgres:
-        condition: service_started
+        condition: service_healthy
     ports:
       # 免认证栈只绑定 localhost，避免内网其他机器直接调用
       - "127.0.0.1:${PORT:-3002}:3002"
@@ -65,12 +86,14 @@ services:
       - backend
     cpus: 4.0
     mem_limit: 8G
+    logging: *common-logging
 
   redis:
     image: redis:alpine
     command: redis-server --bind 0.0.0.0
     networks:
       - backend
+    logging: *common-logging
 
   rabbitmq:
     image: rabbitmq:3-management
@@ -83,6 +106,7 @@ services:
       start_period: 5s
     networks:
       - backend
+    logging: *common-logging
 
   nuq-postgres:
     image: ghcr.io/firecrawl/nuq-postgres:latest
@@ -90,8 +114,15 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
     networks:
       - backend
+    logging: *common-logging
 
 networks:
   backend:
